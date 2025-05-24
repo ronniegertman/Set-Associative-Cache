@@ -10,7 +10,7 @@ class Way{
         unsigned tag;
         bool valid;
         bool dirty;
-        Way() : tag(0), valid(false), dirty(false), id(id) {}
+        Way(int id, unsigned tag, bool valid, bool dirty) : tag(tag), valid(valid), dirty(dirty), id(id) {}
 };
 
 class Set{
@@ -52,12 +52,10 @@ class CacheSimulator {
  int memCyc;
  
  public:
+ //l1 assoc is log2(ways)
     CacheSimulator(int l1Size, int l1Assoc, int l1Cyc, int l2Size, int l2Assoc, int l2Cyc, bool wrAlloc, int blockSize, int memCyc)
-        : l1(l1Size, l1Assoc, l1Cyc), l2(l2Size, l2Assoc, l2Cyc), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc) {
-            this->l1 = Cache(l1Size, l1Assoc, l1Cyc);
-            this->l2 = Cache(l2Size, l2Assoc, l2Cyc);
+        : l1(l1Size, l1Assoc, l1Cyc), l2(l2Size, l2Assoc, l2Cyc), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
 
-        }
 
     void read(unsigned address) {
         // Implement read logic
