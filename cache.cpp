@@ -34,6 +34,7 @@ class Cache{
     Set* setsArray;
     public:
         Cache(int size, int assoc, int cyc) : size(size),cyc(cyc), ways(1 << assoc), sets(size / ways) {
+            // assoc is number of bits for ways
             setsArray = new Set[sets];
             for (int i = 0; i < sets; ++i) {
                 setsArray[i].size = ways;
@@ -45,27 +46,27 @@ class Cache{
 };
 
 class CacheSimulator {
- Cache l1;
- Cache l2;
- bool wrAlloc;
- int blockSize;
- int memCyc;
+    Cache l1;
+    Cache l2;
+    bool wrAlloc;
+    int blockSize;
+    int memCyc;
  
- public:
- //l1 assoc is log2(ways)
-    CacheSimulator(int l1Size, int l1Assoc, int l1Cyc, int l2Size, int l2Assoc, int l2Cyc, bool wrAlloc, int blockSize, int memCyc)
-        : l1(l1Size, l1Assoc, l1Cyc), l2(l2Size, l2Assoc, l2Cyc), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
+    public:
+    //l1 assoc is log2(ways)
+        CacheSimulator(int l1Size, int l1Assoc, int l1Cyc, int l2Size, int l2Assoc, int l2Cyc, bool wrAlloc, int blockSize, int memCyc)
+            : l1(l1Size, l1Assoc, l1Cyc), l2(l2Size, l2Assoc, l2Cyc), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
 
 
-    void read(unsigned address) {
-        // Implement read logic
-    }
+        void read(unsigned address) {
+            // Implement read logic
+        }
 
-    void write(unsigned address) {
-        // Implement write logic
-    }
+        void write(unsigned address) {
+            // Implement write logic
+        }
 
-    void stats() {
-        // Implement stats logic
-    }
+        void stats() {
+            // Implement stats logic
+        }
 };
