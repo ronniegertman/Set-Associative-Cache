@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include "cache.hpp"
 
 using std::FILE;
 using std::string;
