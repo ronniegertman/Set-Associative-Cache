@@ -3,6 +3,7 @@
 #include <fstream>
 #include <queue>
 #include <sstream>
+#include <iomanip>
 using std::queue;
 class Way{
     public:
@@ -31,6 +32,8 @@ class Cache{
         int size;
         int cyc;
         int sets; // number of sets
+        int hits = 0;
+        int misses = 0;
         Set* setsArray;
         Cache(int size, int assoc, int cyc) : size(size),cyc(cyc), ways(1 << assoc), sets(size / ways) {
             // assoc is number of bits for ways
@@ -65,12 +68,15 @@ class CacheSimulator {
             bool foundInL1 = find(tag_l1, set_l1, l1);
             if (foundInL1) {
                 // Hit in L1
+                l1.hits++;
                 std::cout << "Hit in L1" << std::endl;
                 return;
             }
+            l1.misses++;
             bool foundInL2 = find(tag_l2, set_l2, l2);
             if (foundInL2) {
                 // Hit in L2
+                l2.hits++;
                 std::cout << "Hit in L2" << std::endl;
                 // Load to L1
                 load(address, l1, 1);
@@ -78,6 +84,7 @@ class CacheSimulator {
                 return;
             }
             // Miss in both caches
+            l2.misses++;
             load(address, l1, 1);
             load(address, l2, 2);
         }
@@ -111,6 +118,8 @@ class CacheSimulator {
             return found; 
         }
 
+        // Be aware - Load only when there is a miss
+        // We do not add hit / miss rate if we prform write back
         void load(unsigned address, Cache& cache, int cacheIndex = 1) {
             unsigned set = (address / blockSize) % cache.sets;
             unsigned tag = (address / blockSize) / cache.sets;
@@ -146,6 +155,7 @@ class CacheSimulator {
             // Check L1 cache
             bool found = find(tag_l1, set_l1, l1);
             if (found) {
+                l1.hits++;
                 // Hit in L1
                 std::cout << "Hit in L1 for write" << std::endl;
                 // Mark the block as dirty
@@ -153,13 +163,16 @@ class CacheSimulator {
                 way.dirty = true;
                 return;
             }
+            l1.misses++;
             // Check L2 cache
             found = find(tag_l2, set_l2, l2);
             if (found) {
+                l2.hits++;
                 // Hit in L2
                 std::cout << "Hit in L2 for write" << std::endl;
                 // Load to L1 and mark as dirty
                 if (wrAlloc) {
+                    // with a grain of salt, we change the block only in L1
                     load(address, l1, 1);
                     Way& way = l1.setsArray[set_l1].waysQueue.back();
                     way.dirty = true;
@@ -171,6 +184,7 @@ class CacheSimulator {
                 }              
             }
             // Miss in both caches
+            l2.misses++;
             if(wrAlloc) {
                 // Write allocate
                 load(address, l1, 1);
@@ -182,5 +196,21 @@ class CacheSimulator {
 
         void stats() {
             // Implement stats logic
+            float l1_miss_rate = static_cast<float>(l1.misses) / (l1.hits + l1.misses);
+            float l2_miss_rate = static_cast<float>(l2.misses) / (l2.hits + l2.misses);
+            int mem_accesss = l2.misses;
+
+            int instructions_counter = l1.hits + l1.misses;
+            int l1_time = (l1.hits + l1.misses) * l1.cyc;
+            int l2_time = (l2.hits + l2.misses) * l2.cyc;
+
+            int mem_accesss_time = mem_accesss * memCyc;
+            int total_time = l1_time + l2_time + mem_accesss_time;
+            float avg_time = static_cast<float>(total_time) / instructions_counter;
+
+            // print with 3 digit accuracy
+            std::cout << std::fixed << std::setprecision(3);
+            std::cout << "L1miss=" << l1_miss_rate << " L2miss=" << l2_miss_rate 
+            << " AccTimeAvg=" << avg_time << std::endl;
         }
 };
