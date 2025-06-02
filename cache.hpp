@@ -37,7 +37,7 @@ class Cache{
         int hits = 0;
         int misses = 0;
         Set* setsArray;
-        Cache(int size, int assoc, int cyc) : size(size),cyc(cyc), ways(1 << assoc), sets(size / ways) {
+        Cache(int size, int assoc, int cyc) : size(size),cyc(cyc), ways(1 << assoc), sets((1 << size) / ways) {
             // assoc is number of bits for ways
             setsArray = new Set[sets];
             for (int i = 0; i < sets; ++i) {
@@ -135,6 +135,7 @@ class CacheSimulator {
 
             // Check if the set is full
             if (cache.setsArray[set].waysQueue.size() >= cache.ways) {
+                std::cout << "Set is full, evicting a way" << std::endl;
                 // Evict the least recently used way
                 Way evicted = cache.setsArray[set].waysQueue.front();
                 cache.setsArray[set].waysQueue.pop();
