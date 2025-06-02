@@ -30,6 +30,7 @@ class Set{
 
 class Cache{
     public:
+        int blockSize;
         int ways; // number of ways
         int size;
         int cyc;
@@ -37,7 +38,13 @@ class Cache{
         int hits = 0;
         int misses = 0;
         Set* setsArray;
-        Cache(int size, int assoc, int cyc) : size(size),cyc(cyc), ways(1 << assoc), sets((1 << size) / ways) {
+        Cache(int size, int assoc, int cyc, int blockSize) 
+            : blockSize(blockSize),
+              size(1 << size),
+              cyc(cyc),
+              ways(1 << assoc),
+              sets((1 << size) / (blockSize * ways))
+        {
             // assoc is number of bits for ways
             setsArray = new Set[sets];
             for (int i = 0; i < sets; ++i) {
@@ -50,23 +57,22 @@ class Cache{
 };
 
 class CacheSimulator {
+    public:
     Cache l1;
     Cache l2;
     bool wrAlloc;
     int blockSize; // size of cache line in bytes
     int memCyc;
- 
-    public:
     //l1 assoc is log2(ways)
         CacheSimulator(int l1Size, int l1Assoc, int l1Cyc, int l2Size, int l2Assoc, int l2Cyc, bool wrAlloc, int blockSize, int memCyc)
-            : l1(l1Size, l1Assoc, l1Cyc), l2(l2Size, l2Assoc, l2Cyc), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
+            : l1(l1Size, l1Assoc, l1Cyc, (1<<blockSize)), l2(l2Size, l2Assoc, l2Cyc, (1<<blockSize)), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
 
 
         void read(unsigned address) {
-            unsigned set_l1 = (address >> blockSize) % l1.sets; 
-            unsigned set_l2 = (address >> blockSize) % l2.sets; 
-            unsigned tag_l1 = (address >> blockSize) / l1.sets; 
-            unsigned tag_l2 = (address >> blockSize) / l2.sets; 
+            unsigned set_l1 = (address >> blockSize) % l1.sets;
+            unsigned set_l2 = (address >> blockSize) % l2.sets;
+            unsigned tag_l1 = (address >> blockSize) / l1.sets;
+            unsigned tag_l2 = (address >> blockSize) / l2.sets;
             std::cout << "l1 set " << set_l1 << "l1 tag" << tag_l1 <<std::endl;
             std::cout << "l2 set " << set_l2 << "l2 tag" << tag_l2 <<std::endl;
             bool foundInL1 = find(tag_l1, set_l1, l1);
@@ -140,14 +146,20 @@ class CacheSimulator {
                 Way evicted = cache.setsArray[set].waysQueue.front();
                 cache.setsArray[set].waysQueue.pop();
 
-                if (evicted.dirty) {
-                    // Write back to memory if dirty
-                    // if (cacheIndex == 1) {
-                    //     load(address, l2, 2);
-                    // } else {
-                    //     std::cout << "Writing back dirty block from L2 to memory" << std::endl;
-                    // }
-                }
+                // if (evicted.dirty) {
+                //     // Write back to memory if dirty
+                //     if (cacheIndex == 1) {
+                //         if (find(evicted.tag, (evicted.tag >> blockSize) % l2.sets, l2)) {
+                //             l2.hits++;
+                //         } else {
+                //             l2.misses++;    
+                //             // unsigned evictedAddress = evicted.tag * l2.sets + 
+                //             // load(evicted.tag << blockSize, l2, 2);
+                //         }
+                //     } else {
+                //         std::cout << "Writing back dirty block from L2 to memory" << std::endl;
+                //     }
+                // }
              } 
             // Add the new block
             Way newWay(tag, true, false);
