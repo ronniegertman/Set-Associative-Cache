@@ -4,6 +4,8 @@
 #include <queue>
 #include <sstream>
 #include <iomanip>
+#include <stdlib.h>
+
 using std::queue;
 class Way{
     public:
@@ -61,10 +63,12 @@ class CacheSimulator {
 
 
         void read(unsigned address) {
-            unsigned set_l1 = (address / blockSize) % l1.sets; 
-            unsigned set_l2 = (address / blockSize) % l2.sets; 
-            unsigned tag_l1 = (address / blockSize) / l1.sets; 
-            unsigned tag_l2 = (address / blockSize) / l2.sets; 
+            unsigned set_l1 = (address >> blockSize) % l1.sets; 
+            unsigned set_l2 = (address >> blockSize) % l2.sets; 
+            unsigned tag_l1 = (address >> blockSize) / l1.sets; 
+            unsigned tag_l2 = (address >> blockSize) / l2.sets; 
+            std::cout << "l1 set " << set_l1 << "l1 tag" << tag_l1 <<std::endl;
+            std::cout << "l2 set " << set_l2 << "l2 tag" << tag_l2 <<std::endl;
             bool foundInL1 = find(tag_l1, set_l1, l1);
             if (foundInL1) {
                 // Hit in L1
@@ -84,18 +88,22 @@ class CacheSimulator {
                 return;
             }
             // Miss in both caches
+            std::cout << "read miss in both caches" << std::endl;
+
             l2.misses++;
             load(address, l1, 1);
             load(address, l2, 2);
         }
 
         bool find(unsigned tag, unsigned set, Cache& cache) {
+            std::cout << "Finding tag: " << tag << " in set: " << set << std::endl;
             queue<Way> temp;
             queue<Way>& ways_queue = cache.setsArray[set].waysQueue;
 
             bool found = false;
             bool isdirty;
             while (!ways_queue.empty()) {
+                // std::cout << "removing way with tag: " << ways_queue.front().tag << std::endl;
                 Way way = ways_queue.front();
                 ways_queue.pop();
                 if (way.valid && way.tag == tag) {
@@ -121,39 +129,42 @@ class CacheSimulator {
         // Be aware - Load only when there is a miss
         // We do not add hit / miss rate if we prform write back
         void load(unsigned address, Cache& cache, int cacheIndex = 1) {
-            unsigned set = (address / blockSize) % cache.sets;
-            unsigned tag = (address / blockSize) / cache.sets;
+            std::cout << "Loading address " << address << " to cache index " << cacheIndex << std::endl;
+            unsigned set = (address >> blockSize) % cache.sets;
+            unsigned tag = (address >> blockSize) / cache.sets;
 
             // Check if the set is full
             if (cache.setsArray[set].waysQueue.size() >= cache.ways) {
                 // Evict the least recently used way
                 Way evicted = cache.setsArray[set].waysQueue.front();
                 cache.setsArray[set].waysQueue.pop();
-                cache.setsArray[set].size--;
 
                 if (evicted.dirty) {
                     // Write back to memory if dirty
-                    if (cacheIndex == 1) {
-                        CacheSimulator::load(address, l2, 2);
-                    } else {
-                        std::cout << "Writing back dirty block from L2 to memory" << std::endl;
-                    }
+                    // if (cacheIndex == 1) {
+                    //     load(address, l2, 2);
+                    // } else {
+                    //     std::cout << "Writing back dirty block from L2 to memory" << std::endl;
+                    // }
                 }
              } 
             // Add the new block
             Way newWay(tag, true, false);
             cache.setsArray[set].waysQueue.push(newWay);
-            cache.setsArray[set].size++;
     }   
 
         void write(unsigned address) {
             // Implement write logic
-            unsigned set_l1 = (address / blockSize) % l1.sets; 
-            unsigned set_l2 = (address / blockSize) % l2.sets; 
-            unsigned tag_l1 = (address / blockSize) / l1.sets; 
-            unsigned tag_l2 = (address / blockSize) / l2.sets;
+            unsigned set_l1 = (address >> blockSize) % l1.sets; 
+            unsigned set_l2 = (address >> blockSize) % l2.sets; 
+            unsigned tag_l1 = (address >> blockSize) / l1.sets; 
+            unsigned tag_l2 = (address >> blockSize) / l2.sets; 
+
+            std::cout << "l1 set " << set_l1 << "l1 tag" << tag_l1 <<std::endl;
+            std::cout << "l2 set " << set_l2 << "l2 tag" << tag_l2 <<std::endl;
             // Check L1 cache
             bool found = find(tag_l1, set_l1, l1);
+
             if (found) {
                 l1.hits++;
                 // Hit in L1
@@ -209,8 +220,12 @@ class CacheSimulator {
             float avg_time = static_cast<float>(total_time) / instructions_counter;
 
             // print with 3 digit accuracy
-            std::cout << std::fixed << std::setprecision(3);
-            std::cout << "L1miss=" << l1_miss_rate << " L2miss=" << l2_miss_rate 
-            << " AccTimeAvg=" << avg_time << std::endl;
+            // std::cout << std::fixed << std::setprecision(3);
+            // std::cout << "L1miss=" << l1_miss_rate << " L2miss=" << l2_miss_rate 
+            // << " AccTimeAvg=" << avg_time << std::endl;
+
+            printf("L1miss=%.03f ", l1_miss_rate);
+	        printf("L2miss=%.03f ", l2_miss_rate);
+	        printf("AccTimeAvg=%.03f\n", avg_time);
         }
 };

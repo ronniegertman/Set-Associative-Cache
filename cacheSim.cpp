@@ -61,6 +61,9 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	CacheSimulator cache(L1Size, L1Assoc, L1Cyc, L2Size, L2Assoc, L2Cyc,
+			WrAlloc, BSize, MemCyc);
+
 	while (getline(file, line)) {
 
 		stringstream ss(line);
@@ -86,15 +89,20 @@ int main(int argc, char **argv) {
 		// DEBUG - remove this line
 		cout << " (dec) " << num << endl;
 
+		if (operation == 'R' || operation == 'r') {
+			cache.read(num);
+		} else if (operation == 'W' || operation == 'w') {
+			cache.write(num);
+		} else {
+			cerr << "Invalid operation: " << operation << endl;
+			return 0;
+		}
+
 	}
 
-	double L1MissRate;
-	double L2MissRate;
-	double avgAccTime;
 
-	printf("L1miss=%.03f ", L1MissRate);
-	printf("L2miss=%.03f ", L2MissRate);
-	printf("AccTimeAvg=%.03f\n", avgAccTime);
+	cache.stats();
+
 
 	return 0;
 }
