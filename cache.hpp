@@ -67,6 +67,25 @@ class CacheSimulator {
         CacheSimulator(int l1Size, int l1Assoc, int l1Cyc, int l2Size, int l2Assoc, int l2Cyc, bool wrAlloc, int blockSize, int memCyc)
             : l1(l1Size, l1Assoc, l1Cyc, (1<<blockSize)), l2(l2Size, l2Assoc, l2Cyc, (1<<blockSize)), wrAlloc(wrAlloc), blockSize(blockSize), memCyc(memCyc)  {}
 
+        
+        void printCacheTable(const Cache& cache, const std::string& cacheName) {
+            std::cout << "Cache Table for " << cacheName << ":\n";
+            for (int setIndex = 0; setIndex < cache.sets; ++setIndex) {
+                std::cout << "Set " << setIndex << ": ";
+                queue<Way> tempQueue = cache.setsArray[setIndex].waysQueue;
+                while (!tempQueue.empty()) {
+                    Way way = tempQueue.front();
+                    tempQueue.pop();
+                    if (way.valid) {
+                        std::cout << way.tag << " ";
+                    } else {
+                        std::cout << "Empty ";
+                    }
+                }
+                std::cout << "\n";
+            }
+            std::cout << std::endl;
+        }
 
         void read(unsigned address) {
             unsigned set_l1 = (address >> blockSize) % l1.sets;
@@ -80,6 +99,8 @@ class CacheSimulator {
                 // Hit in L1
                 l1.hits++;
                 std::cout << "Hit in L1" << std::endl;
+                printCacheTable(l1, "L1");
+                printCacheTable(l2, "L2");
                 return;
             }
             l1.misses++;
@@ -91,6 +112,8 @@ class CacheSimulator {
                 // Load to L1
                 load(address, l1, 1);
                 // Implement logic to load the block from L2 to L1
+                printCacheTable(l1, "L1");
+                printCacheTable(l2, "L2");
                 return;
             }
             // Miss in both caches
@@ -99,6 +122,8 @@ class CacheSimulator {
             l2.misses++;
             load(address, l1, 1);
             load(address, l2, 2);
+            printCacheTable(l1, "L1");
+            printCacheTable(l2, "L2");
         }
 
         bool find(unsigned tag, unsigned set, Cache& cache) {
@@ -131,43 +156,78 @@ class CacheSimulator {
             }
             return found; 
         }
+        // ...existing code...
 
-        // Be aware - Load only when there is a miss
-        // We do not add hit / miss rate if we prform write back
+        void evictAndSnoop(unsigned address, Cache& cache, int cacheIndex) {
+        unsigned set = (address >> blockSize) % cache.sets;
+        unsigned tag = (address >> blockSize) / cache.sets;
+        // Evict the block from the given cache
+        queue<Way>& waysQueue = cache.setsArray[set].waysQueue;
+        queue<Way> tempQueue;
+
+        bool found = false;
+        while (!waysQueue.empty()) {
+            Way way = waysQueue.front();
+            waysQueue.pop();
+            if (way.valid && way.tag == tag) {
+                std::cout << "Evicting block with tag " << way.tag << " from cache index " << cacheIndex << std::endl; // Debug print
+                found = true; // Block to evict found
+            } else {
+                tempQueue.push(way); // Keep other blocks
+            }
+        }
+
+        // Restore the queue without the evicted block
+        while (!tempQueue.empty()) {
+            waysQueue.push(tempQueue.front());
+            tempQueue.pop();
+        }
+
+        if (found) {
+            std::cout << "Evicted block with tag " << tag << " from cache index " << cacheIndex << std::endl; // Debug print
+
+            // If evicting from L2, snoop in L1
+            if (cacheIndex == 2) {
+                std::cout << "Snooping L1 for address " << address << std::endl; // Debug print
+                evictAndSnoop(address, l1, 1); // Recursively evict from L1 if needed
+            }
+        }
+        }
+
         void load(unsigned address, Cache& cache, int cacheIndex = 1) {
-            std::cout << "Loading address " << address << " to cache index " << cacheIndex << std::endl;
-            unsigned set = (address >> blockSize) % cache.sets;
-            unsigned tag = (address >> blockSize) / cache.sets;
+        std::cout << "Loading address " << address << " to cache index " << cacheIndex << std::endl; // Debug print
+        unsigned set = (address >> blockSize) % cache.sets;
+        unsigned tag = (address >> blockSize) / cache.sets;
 
-            // Check if the set is full
-            if (cache.setsArray[set].waysQueue.size() >= cache.ways) {
-                std::cout << "Set is full, evicting a way" << std::endl;
-                // Evict the least recently used way
-                Way evicted = cache.setsArray[set].waysQueue.front();
-                cache.setsArray[set].waysQueue.pop();
+        // Check if the set is full
+        if (cache.setsArray[set].waysQueue.size() >= cache.ways) {
+            std::cout << "Set is full, evicting a way" << std::endl; // Debug print
+            Way evicted = cache.setsArray[set].waysQueue.front();
+            cache.setsArray[set].waysQueue.pop();
+            if( evicted.valid && evicted.dirty && cacheIndex == 1) {
+                unsigned evictedAddress = (evicted.tag * cache.sets + set) << blockSize;
+                unsigned evicted_set_l2 = (evictedAddress >> blockSize) % l2.sets;
+                unsigned evicted_tag_l2 = (evictedAddress >> blockSize) / l2.sets;
+                find(evicted_tag_l2 ,evicted_set_l2 ,l2); 
+            }
+            // If evicted block is valid, handle eviction and snooping
+            if (evicted.valid && cacheIndex == 2) {
+                unsigned evictedAddress = (evicted.tag * cache.sets + set) << blockSize;
+                std::cout << "Evicting block with tag " << evicted.tag << " from set " << set << std::endl; // Debug print
+                std::cout << "Evicted address: " << evictedAddress << std::endl; // Debug print
+                std::cout << "evicted in cacheIndex" << cacheIndex << std::endl; // Debug print
+                evictAndSnoop(evictedAddress, l1, 1);
+            }
+        }
 
-                // if (evicted.dirty) {
-                //     // Write back to memory if dirty
-                //     if (cacheIndex == 1) {
-                //         if (find(evicted.tag, (evicted.tag >> blockSize) % l2.sets, l2)) {
-                //             l2.hits++;
-                //         } else {
-                //             l2.misses++;    
-                //             // unsigned evictedAddress = evicted.tag * l2.sets + 
-                //             // load(evicted.tag << blockSize, l2, 2);
-                //         }
-                //     } else {
-                //         std::cout << "Writing back dirty block from L2 to memory" << std::endl;
-                //     }
-                // }
-             } 
-            // Add the new block
-            Way newWay(tag, true, false);
-            cache.setsArray[set].waysQueue.push(newWay);
-    }   
+        // Add the new block
+        Way newWay(tag, true, false);
+        cache.setsArray[set].waysQueue.push(newWay);
+        }
 
         void write(unsigned address) {
             // Implement write logic
+
             unsigned set_l1 = (address >> blockSize) % l1.sets; 
             unsigned set_l2 = (address >> blockSize) % l2.sets; 
             unsigned tag_l1 = (address >> blockSize) / l1.sets; 
@@ -185,6 +245,8 @@ class CacheSimulator {
                 // Mark the block as dirty
                 Way& way = l1.setsArray[set_l1].waysQueue.back();
                 way.dirty = true;
+                printCacheTable(l1, "L1");
+                printCacheTable(l2, "L2");
                 return;
             }
             l1.misses++;
@@ -200,10 +262,14 @@ class CacheSimulator {
                     load(address, l1, 1);
                     Way& way = l1.setsArray[set_l1].waysQueue.back();
                     way.dirty = true;
+                    printCacheTable(l1, "L1");
+                    printCacheTable(l2, "L2");
                     return;
                 } else {
                     Way& way = l2.setsArray[set_l2].waysQueue.back();
                     way.dirty = true;
+                    printCacheTable(l1, "L1");
+                    printCacheTable(l2, "L2");
                     return;
                 }              
             }
@@ -215,6 +281,8 @@ class CacheSimulator {
                 Way& way = l1.setsArray[set_l1].waysQueue.back();
                 way.dirty = true;
                 load(address, l2, 2);
+                printCacheTable(l1, "L1");
+                printCacheTable(l2, "L2");
             }  
         }
 
